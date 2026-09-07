@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg[binary]
+alembic
+pydantic-settings
+
+pip==26.2.1

@@ -1,0 +1,8 @@
+-r requirements.in
+pytest
+httpx
+ruff
+pip-audit
+bandit
+pip-tools
+pip==26.2.1
