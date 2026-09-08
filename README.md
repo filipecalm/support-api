@@ -17,7 +17,7 @@ A Python support-ticket API designed to make authorization and concurrency decis
 
 ## Run locally (PowerShell)
 
-Requires Python 3.12+ and Docker Compose. Commands assume the repository root.
+Requires Python 3.12 and Docker Compose. Commands assume the repository root.
 
 ```powershell
 python -m venv .venv
@@ -92,3 +92,5 @@ python -m piptools compile --allow-unsafe --strip-extras --generate-hashes --no-
 - Operational metrics, deployment hardening and public demo data.
 
 Attachments, outbound webhooks, email delivery, multitenancy and password storage are outside this iteration. No public deployment has been performed.
+
+For Vercel, runtime dependencies are declared in pyproject.toml and locked in uv.lock. After intentional dependency changes, update both the pip-tools lock files and uv.lock. The configured entrypoint is app.main:app and Python is restricted to 3.12.

@@ -47,3 +47,9 @@ No attachments, outbound URL fetches, webhook delivery or email processing are i
 - [SQLAlchemy concurrency/versioning considerations](https://docs.sqlalchemy.org/en/20/orm/versioning.html) — this API uses an explicit conditional UPDATE rather than ORM version_id_col.
 
 Report security issues privately to the repository maintainer. Do not include real tokens, personal ticket data or database credentials in a public issue.
+
+## Vercel dependency manifest correction (2026-09-08)
+
+The first Vercel deployment failed before application startup with `ModuleNotFoundError: fastapi`. The project metadata lacked runtime dependencies even though requirements.txt contained them. Runtime dependencies are now declared with exact versions in pyproject.toml; uv.lock records the resolved artifacts and hashes for the Vercel installation path. Python is bounded to 3.12, matching local verification, and the entrypoint is explicit.
+
+A separate clean virtual environment installed with `uv sync --locked --no-dev` successfully imported app.main using a dummy database URL without connecting to a database. This verifies packaging and imports locally; Vercel deployment and Neon connectivity still require remote validation.

@@ -2,7 +2,19 @@
 name = "support-api"
 version = "0.1.0"
 description = "Support ticket API with explicit authorization and confidential internal notes"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi==0.141.1",
+    "uvicorn==0.52.4",
+    "sqlalchemy==2.0.52",
+    "psycopg[binary]==3.3.5",
+    "alembic==1.19.2",
+    "pydantic-settings==2.15.0",
+    "pip==26.2.1",
+]
+
+[tool.vercel]
+entrypoint = "app.main:app"
 
 [tool.ruff]
 line-length = 100
