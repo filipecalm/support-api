@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.auth import authenticate
-from app.config import settings
+from app.config import host_allowlist, settings
 from app.db import session
 from app.models import Comment, Event, Ticket, User
 from app.schemas import ChangeTicket, CommentOut, EventOut, NewComment, NewTicket, Status, TicketOut
@@ -85,7 +85,7 @@ class Boundary:
             await JSONResponse({"detail": "Internal server error"}, 500)(scope, buffered, secured)
 
 
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings().allowed_hosts)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=host_allowlist())
 app.add_middleware(Boundary)
 
 

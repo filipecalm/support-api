@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 
 from pydantic import Field
@@ -14,3 +15,15 @@ class Settings(BaseSettings):
 @lru_cache
 def settings() -> Settings:
     return Settings()
+
+
+def host_allowlist() -> list[str]:
+    hosts = list(settings().allowed_hosts)
+    for key in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"):
+        raw = os.environ.get(key)
+        if not raw:
+            continue
+        host = raw.removeprefix("https://").removeprefix("http://").split("/", 1)[0]
+        if host and host not in hosts:
+            hosts.append(host)
+    return hosts

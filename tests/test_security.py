@@ -243,6 +243,17 @@ def test_ready_and_statement_timeout(client):
         assert connection.execute(text("SHOW statement_timeout")).scalar() == "5s"
 
 
+def test_host_allowlist_includes_vercel_urls(monkeypatch):
+    from app.config import host_allowlist
+
+    monkeypatch.setenv("VERCEL_URL", "support-nzbnnw2i8-almeidatech92.vercel.app")
+    monkeypatch.setenv("VERCEL_PROJECT_PRODUCTION_URL", "support-api-three.vercel.app")
+    hosts = host_allowlist()
+    assert "support-nzbnnw2i8-almeidatech92.vercel.app" in hosts
+    assert "support-api-three.vercel.app" in hosts
+    assert "attacker.example" not in hosts
+
+
 def test_rate_limit_enforced(client, identities):
     with Session(engine) as db:
         token = db.get(AccessToken, identities["alice"]["digest"])
