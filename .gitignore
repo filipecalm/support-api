@@ -8,3 +8,6 @@ __pycache__/
 .local-test/
 *.token
 *.egg-info/
+
+.vercel
+.env*

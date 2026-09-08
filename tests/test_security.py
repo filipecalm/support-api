@@ -236,6 +236,13 @@ def test_boundary(client, identities):
     )
 
 
+def test_ready_and_statement_timeout(client):
+    ready = client.get("/ready")
+    assert ready.status_code == 200 and ready.json() == {"status": "ready"}
+    with engine.connect() as connection:
+        assert connection.execute(text("SHOW statement_timeout")).scalar() == "5s"
+
+
 def test_rate_limit_enforced(client, identities):
     with Session(engine) as db:
         token = db.get(AccessToken, identities["alice"]["digest"])

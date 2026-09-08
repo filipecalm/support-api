@@ -53,3 +53,7 @@ Report security issues privately to the repository maintainer. Do not include re
 The first Vercel deployment failed before application startup with `ModuleNotFoundError: fastapi`. The project metadata lacked runtime dependencies even though requirements.txt contained them. Runtime dependencies are now declared with exact versions in pyproject.toml; uv.lock records the resolved artifacts and hashes for the Vercel installation path. Python is bounded to 3.12, matching local verification, and the entrypoint is explicit.
 
 A separate clean virtual environment installed with `uv sync --locked --no-dev` successfully imported app.main using a dummy database URL without connecting to a database. This verifies packaging and imports locally; Vercel deployment and Neon connectivity still require remote validation.
+
+## Neon pooled readiness (2026-09-08)
+
+`/health` succeeded on Vercel while `/ready` returned generic `503 Database unavailable`. Neon’s pooled endpoint rejects `statement_timeout` in the PostgreSQL startup `options` packet. The runtime still enforces a 5s statement timeout, but applies it with `SET` after connect so pooled and direct URLs both work. `DATABASE_URL` must use the `postgresql+psycopg://` dialect; plain `postgresql://` expects psycopg2, which is not installed.
