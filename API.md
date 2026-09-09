@@ -1,6 +1,6 @@
 # HTTP contract
 
-Base path: `/v1`. Send `Authorization: Bearer <token>` on every endpoint except `/health` and `/ready`. Mutations use `application/json`; compressed request bodies are rejected. Maximum body: 32 KiB. Default limit: 120 authenticated requests per token per minute, shared across app instances through PostgreSQL.
+Base path: `/v1`. Send `Authorization: Bearer <token>` on every endpoint except `/health` and `/ready`. The bearer may be an opaque CLI token or a Neon Auth JWT (`authClient.token()`). Mutations use `application/json`; compressed request bodies are rejected. Maximum body: 32 KiB. Default limit: 120 authenticated requests per identity per minute, shared across app instances through PostgreSQL.
 
 | Method | Path | Behavior |
 | --- | --- | --- |
