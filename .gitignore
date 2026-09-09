@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!web/.env.example
 __pycache__/
 .pytest_cache/
 .ruff_cache/
@@ -10,4 +11,6 @@ __pycache__/
 *.egg-info/
 
 .vercel
-.env*
+web/dist/
+web/node_modules/
+
