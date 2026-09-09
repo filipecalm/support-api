@@ -13,7 +13,8 @@ This iteration is a single-organization API with operator-provisioned identities
 | Token theft from database | 256-bit random bearer secrets, only SHA-256 digest stored; expiry and revocation | Expired/revoked/disabled identities rejected; CLI lifecycle tested |
 | Request amplification | 32 KiB body bound, field bounds, bounded pages, SQL statement timeout, 120 requests/token/minute | Body/query limits and rate-limit responses tested |
 | SQL injection | SQLAlchemy parameters and escaped literal substring search | Injection and wildcard probes tested |
-| History tampering / excessive runtime privileges | Separate runtime role with no update/delete on comments/events, no user writes or DDL; only specific token/ticket columns updatable | Real PostgreSQL privilege checks, API tests run under restricted role |
+| History tampering / excessive runtime privileges | Separate runtime role: INSERT users only for Neon Auth provisioning, no UPDATE/DELETE on users/comments/events, no DDL; limited token/ticket/request_window columns | Real PostgreSQL privilege checks, API tests run under restricted role |
+| Neon Auth JWT misuse | JWKS EdDSA verify; issuer/audience pinned; banned rejected; auto-provision CUSTOMER only; staff roles via CLI link/set-role | JWT provision + bad signature + linked AGENT regression tested |
 | Sensitive error disclosure | Generic failures, validation omits input, error log contains only generated request ID and exception class | Injected secret-bearing failure absent from response/log |
 | Credential exposure in source | Exclusive private token file creation, no CLI token output; ignored environment/token files | CLI output and refusal to overwrite an existing token tested |
 
@@ -34,8 +35,8 @@ The database owner can alter history. These audit events are immutable to the we
 
 1. Use TLS at a reverse proxy, connection/header/body timeouts and an IP-based limit before authentication. The application's token limit does not stop unauthenticated floods. Disable access logging of sensitive URLs/headers and redact Authorization in observability tools.
 2. Use separate schema-owner and runtime credentials. Apply `ops/runtime-grants.sql` to a newly provisioned, non-owner, non-superuser runtime role. Migrations and the administrative CLI use the owner credential through a separate process. Compose's development account owns the schema and is not a production runtime identity.
-3. Configure exact allowed hostnames in `ALLOWED_HOSTS`; CORS is disabled. On Vercel, `VERCEL_URL`, `VERCEL_BRANCH_URL` and `VERCEL_PROJECT_PRODUCTION_URL` are merged into the allowlist so deployment and production aliases are not rejected as `Invalid host header`. Do not set `ALLOWED_HOSTS=["*"]`. Do not weaken origin policy to integrate the frontend. Design browser authentication first; do not store long-lived bearer credentials in localStorage.
-4. Keep token files and environment files private, including Windows ACLs. Tokens are bearer credentials: possession grants access. The API accepts no authentication cookies, so its current authentication has no ambient-cookie CSRF surface. Reassess CSRF when browser sessions are introduced.
+3. Configure exact allowed hostnames in `ALLOWED_HOSTS`. On Vercel, `VERCEL_URL`, `VERCEL_BRANCH_URL` and `VERCEL_PROJECT_PRODUCTION_URL` are merged into the allowlist so deployment and production aliases are not rejected as `Invalid host header`. Do not set `ALLOWED_HOSTS=["*"]`. Browser SPA access uses Neon Auth JWTs in the `Authorization` header and an explicit `ALLOWED_ORIGINS` allowlist (never `*`). Do not store long-lived bearer credentials in localStorage; prefer short-lived JWTs from `authClient.token()`.
+4. Keep token files and environment files private, including Windows ACLs. Opaque CLI tokens and Neon JWTs are bearer credentials: possession grants access. Cookie-based Neon Auth sessions stay on the Auth origin; the Support API does not use cookies, so its browser surface remains CSRF-light for credentialed cookie posts. Reassess if the API ever accepts cookies.
 5. Define backup/restore, log retention, data deletion, operational monitoring and credential rotation policies. Expired tokens remain in the database until an operator removes them; a retention job is not implemented.
 6. Validate the container image, pin a reviewed image digest and execute CI on the target Linux environment before release. No container vulnerability scan or external penetration test is claimed.
 
@@ -54,6 +55,6 @@ The first Vercel deployment failed before application startup with `ModuleNotFou
 
 A separate clean virtual environment installed with `uv sync --locked --no-dev` successfully imported app.main using a dummy database URL without connecting to a database. This verifies packaging and imports locally; Vercel deployment and Neon connectivity still require remote validation.
 
-## Neon pooled readiness (2026-09-08)
+## Neon Auth JWT bridge (2026-09-08)
 
-`/health` succeeded on Vercel while `/ready` returned generic `503 Database unavailable`. Neon’s pooled endpoint rejects `statement_timeout` in the PostgreSQL startup `options` packet. The runtime still enforces a 5s statement timeout, but applies it with `SET` after connect so pooled and direct URLs both work. `DATABASE_URL` must use the `postgresql+psycopg://` dialect; plain `postgresql://` expects psycopg2, which is not installed.
+Browser clients authenticate with Managed Better Auth, then send a short-lived EdDSA JWT (`authClient.token()`) as `Authorization: Bearer`. The API verifies JWKS, maps `sub` to `users.neon_auth_id`, and auto-creates a `CUSTOMER` on first sight. Staff roles are never taken from JWT claims; operators use `python -m app.cli link-neon` and `set-role`. Opaque CLI tokens remain valid for operators and tests. Set `NEON_AUTH_BASE_URL` / `NEON_AUTH_JWKS_URL` and `ALLOWED_ORIGINS` on the API deployment.
