@@ -254,6 +254,164 @@ def test_host_allowlist_includes_vercel_urls(monkeypatch):
     assert "attacker.example" not in hosts
 
 
+def test_neon_jwt_provisions_customer_only(client, monkeypatch):
+    from uuid import uuid4
+
+    import jwt
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    import app.auth as auth
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key()
+    neon_id = uuid4()
+    origin = "https://auth.example.test"
+    token = jwt.encode(
+        {
+            "sub": str(neon_id),
+            "name": "Neon Customer",
+            "email": "neon-customer@example.test",
+            "role": "authenticated",
+            "banned": False,
+            "iss": origin,
+            "aud": origin,
+        },
+        private_key,
+        algorithm="EdDSA",
+        headers={"kid": "test-key"},
+    )
+
+    class Key:
+        key = public_key
+
+    class Client:
+        def get_signing_key_from_jwt(self, value):
+            assert value == token
+            return Key()
+
+    monkeypatch.setattr(auth, "_jwks_client", lambda: Client())
+    monkeypatch.setattr(auth, "neon_auth_origin", lambda: origin)
+    monkeypatch.setattr(auth, "neon_jwks_url", lambda: f"{origin}/.well-known/jwks.json")
+
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/v1/me", headers=headers)
+    assert me.status_code == 200
+    body = me.json()
+    assert body["role"] == "CUSTOMER"
+    assert body["name"] == "Neon Customer"
+    with Session(engine) as db:
+        user = db.get(User, body["id"])
+        assert user.neon_auth_id == neon_id
+        assert user.email == "neon-customer@example.test"
+        assert user.role == "CUSTOMER"
+
+
+def test_neon_jwt_rejects_bad_signature_and_banned(client, monkeypatch):
+    from uuid import uuid4
+
+    import jwt
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    import app.auth as auth
+
+    private_key = Ed25519PrivateKey.generate()
+    other_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key()
+    origin = "https://auth.example.test"
+
+    class Key:
+        key = public_key
+
+    class Client:
+        def get_signing_key_from_jwt(self, value):
+            return Key()
+
+    monkeypatch.setattr(auth, "_jwks_client", lambda: Client())
+    monkeypatch.setattr(auth, "neon_auth_origin", lambda: origin)
+    monkeypatch.setattr(auth, "neon_jwks_url", lambda: f"{origin}/.well-known/jwks.json")
+
+    bad = jwt.encode(
+        {
+            "sub": str(uuid4()),
+            "name": "X",
+            "email": "x@example.test",
+            "iss": origin,
+            "aud": origin,
+        },
+        other_key,
+        algorithm="EdDSA",
+        headers={"kid": "test-key"},
+    )
+    assert client.get("/v1/me", headers={"Authorization": f"Bearer {bad}"}).status_code == 401
+
+    banned = jwt.encode(
+        {
+            "sub": str(uuid4()),
+            "name": "Banned",
+            "email": "banned@example.test",
+            "banned": True,
+            "iss": origin,
+            "aud": origin,
+        },
+        private_key,
+        algorithm="EdDSA",
+        headers={"kid": "test-key"},
+    )
+    assert client.get("/v1/me", headers={"Authorization": f"Bearer {banned}"}).status_code == 401
+
+
+def test_linked_neon_agent_keeps_staff_role(client, monkeypatch):
+    from uuid import uuid4
+
+    import jwt
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    import app.auth as auth
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key()
+    neon_id = uuid4()
+    origin = "https://auth.example.test"
+    with Session(engine) as db:
+        agent = User(
+            name="Staff",
+            role="AGENT",
+            neon_auth_id=neon_id,
+            email="agent@example.test",
+        )
+        db.add(agent)
+        db.commit()
+        agent_id = str(agent.id)
+
+    token = jwt.encode(
+        {
+            "sub": str(neon_id),
+            "name": "Staff",
+            "email": "agent@example.test",
+            "iss": origin,
+            "aud": origin,
+        },
+        private_key,
+        algorithm="EdDSA",
+        headers={"kid": "test-key"},
+    )
+
+    class Key:
+        key = public_key
+
+    class Client:
+        def get_signing_key_from_jwt(self, value):
+            return Key()
+
+    monkeypatch.setattr(auth, "_jwks_client", lambda: Client())
+    monkeypatch.setattr(auth, "neon_auth_origin", lambda: origin)
+    monkeypatch.setattr(auth, "neon_jwks_url", lambda: f"{origin}/.well-known/jwks.json")
+
+    me = client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json() == {"id": agent_id, "name": "Staff", "role": "AGENT"}
+
+
 def test_rate_limit_enforced(client, identities):
     with Session(engine) as db:
         token = db.get(AccessToken, identities["alice"]["digest"])
