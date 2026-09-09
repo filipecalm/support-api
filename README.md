@@ -48,6 +48,24 @@ Invoke-RestMethod http://127.0.0.1:8000/v1/tickets -Method Post -Headers $header
 Revoke all tokens for a user with `python -m app.cli revoke-tokens --user '<USER_UUID>'`.
 Tokens last 8 hours by default, at most 24 hours. Use a private directory for token files; on Windows, protect its ACL. `.token` files and `.env` are ignored by Git. Never paste tokens into URLs, screenshots or issue reports.
 
+## Vue dashboard (`web/`)
+
+```powershell
+cd web
+Copy-Item .env.example .env
+npm install
+npm run dev
+```
+
+Sign up in the UI (Neon Auth). The API auto-provisions a `CUSTOMER`. Promote staff with the owner DB URL:
+
+```powershell
+python -m app.cli link-neon --user '<SUPPORT_USER_UUID>' --neon-auth-id '<NEON_AUTH_USER_UUID>' --email 'agent@example.com'
+python -m app.cli set-role --user '<SUPPORT_USER_UUID>' --role AGENT
+```
+
+Set API env `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, and `ALLOWED_ORIGINS` (exact frontend origins). Deploy `web/` as its own Vercel project; add the production origin with `neon neon-auth domain add https://<front-host>`.
+
 ## Contract and design
 
 See [API.md](API.md) for endpoint examples and [SECURITY.md](SECURITY.md) for the threat model, audit evidence and deployment boundaries.
@@ -87,7 +105,7 @@ python -m piptools compile --allow-unsafe --strip-extras --generate-hashes --no-
 
 ## Next iterations
 
-- Browser sign-in and complete account lifecycle, before the Vue dashboard uses real users.
+- Vue dashboard under `web/` with Neon Auth JWT → Support API identity mapping (this iteration).
 - SLA policy, background processing and notifications with retry/idempotency tests.
 - Operational metrics, deployment hardening and public demo data.
 
