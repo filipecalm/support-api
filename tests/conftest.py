@@ -29,9 +29,13 @@ def least_privilege_runtime():
             sql.SQL("CREATE ROLE support_runtime LOGIN PASSWORD {}").format(sql.Literal(password))
         )
         raw.execute("GRANT USAGE ON SCHEMA public TO support_runtime")
-        raw.execute("GRANT SELECT ON users TO support_runtime")
+        raw.execute("GRANT SELECT, INSERT ON users TO support_runtime")
         raw.execute(
             "GRANT SELECT, UPDATE (window_start, requests) ON access_tokens TO support_runtime"
+        )
+        raw.execute(
+            "GRANT SELECT, INSERT, UPDATE (window_start, requests) ON request_windows"
+            " TO support_runtime"
         )
         raw.execute(
             "GRANT SELECT, INSERT, UPDATE (status, assignee_id, version) ON tickets TO support_runtime"
@@ -52,7 +56,11 @@ def least_privilege_runtime():
 @pytest.fixture(autouse=True)
 def clean():
     with engine.begin() as db:
-        db.execute(text("TRUNCATE events, comments, tickets, access_tokens, users CASCADE"))
+        db.execute(
+            text(
+                "TRUNCATE events, comments, tickets, access_tokens, request_windows, users CASCADE"
+            )
+        )
 
 
 @pytest.fixture
