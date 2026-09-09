@@ -14,3 +14,7 @@ __pycache__/
 web/dist/
 web/node_modules/
 
+
+.agents/
+skills-lock.json
+
