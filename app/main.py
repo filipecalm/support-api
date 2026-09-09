@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -87,6 +88,16 @@ class Boundary:
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=host_allowlist())
 app.add_middleware(Boundary)
+if settings().allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings().allowed_origins,
+        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["x-request-id", "retry-after"],
+        allow_credentials=False,
+        max_age=600,
+    )
 
 
 @app.exception_handler(RequestValidationError)
