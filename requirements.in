@@ -4,5 +4,6 @@ sqlalchemy
 psycopg[binary]
 alembic
 pydantic-settings
+PyJWT[crypto]
 
 pip==26.2.1
