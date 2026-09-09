@@ -25,6 +25,8 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(100))
     role: Mapped[str] = mapped_column(String(10))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    neon_auth_id: Mapped[uuid.UUID | None] = mapped_column(UUID, unique=True)
+    email: Mapped[str | None] = mapped_column(String(320), unique=True)
 
 
 class AccessToken(Base):
@@ -33,6 +35,15 @@ class AccessToken(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    window_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    requests: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class RequestWindow(Base):
+    __tablename__ = "request_windows"
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
     window_start: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
