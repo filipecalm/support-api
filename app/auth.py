@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient, PyJWTError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import neon_auth_origin, neon_jwks_url
@@ -42,6 +43,21 @@ def _enforce_window(db: Session, window: RequestWindow, now: datetime) -> None:
     if window.requests >= 120:
         raise HTTPException(429, "Request limit reached", headers={"Retry-After": "60"})
     window.requests += 1
+
+
+def _rate_limit_user(db: Session, user_id: uuid.UUID, now: datetime) -> None:
+    window = db.get(RequestWindow, user_id, with_for_update=True)
+    if window is None:
+        try:
+            with db.begin_nested():
+                db.add(RequestWindow(user_id=user_id, window_start=now, requests=0))
+                db.flush()
+        except IntegrityError:
+            pass
+        window = db.get(RequestWindow, user_id, with_for_update=True)
+        if window is None:
+            raise _unauthorized()
+    _enforce_window(db, window, now)
 
 
 def _authenticate_opaque(token: str) -> User:
@@ -95,7 +111,7 @@ def _authenticate_jwt(token: str) -> User:
     email_value = str(email).strip().lower()[:320] if email else None
     now = datetime.now(UTC)
     with SessionLocal.begin() as db:
-        user = db.scalar(select(User).where(User.neon_auth_id == neon_id).with_for_update())
+        user = db.scalar(select(User).where(User.neon_auth_id == neon_id))
         if user is None:
             if email_value:
                 conflict = db.scalar(select(User.id).where(User.email == email_value))
@@ -108,16 +124,17 @@ def _authenticate_jwt(token: str) -> User:
                 neon_auth_id=neon_id,
                 email=email_value,
             )
-            db.add(user)
-            db.flush()
-        elif not user.active:
+            try:
+                with db.begin_nested():
+                    db.add(user)
+                    db.flush()
+            except IntegrityError:
+                user = db.scalar(select(User).where(User.neon_auth_id == neon_id))
+                if user is None:
+                    raise _unauthorized() from None
+        if not user.active:
             raise _unauthorized()
-        window = db.get(RequestWindow, user.id, with_for_update=True)
-        if window is None:
-            window = RequestWindow(user_id=user.id, window_start=now, requests=0)
-            db.add(window)
-            db.flush()
-        _enforce_window(db, window, now)
+        _rate_limit_user(db, user.id, now)
         db.expunge(user)
         return user
 
