@@ -10,7 +10,7 @@ dependencies = [
     "psycopg[binary]==3.3.5",
     "alembic==1.19.2",
     "pydantic-settings==2.15.0",
-    "PyJWT[crypto]==2.13.0",
+    "PyJWT[crypto]==2.14.0",
     "pip==26.2.1",
 ]
 
