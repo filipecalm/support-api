@@ -5,7 +5,7 @@ description = "Support ticket API with explicit authorization and confidential i
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi==0.141.1",
-    "uvicorn==0.52.4",
+    "uvicorn==0.53.0",
     "sqlalchemy==2.0.52",
     "psycopg[binary]==3.3.5",
     "alembic==1.19.2",
